@@ -8,12 +8,34 @@ from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, landscape, A4
 from reportlab.lib.units import inch
-
+import cv2
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # Resolución deseada para las imágenes en DPI (puedes ajustarla según tus necesidades)
 RESOLUCION_DPI = 300
+
+def detectar_orientacion(imagen_path):
+    # Cargar la imagen
+    imagen = cv2.imread(imagen_path)
+
+    # Obtener el ancho y el alto de la imagen
+    ancho, alto = imagen.shape[1], imagen.shape[0]
+
+    # Determinar la relación entre ancho y alto
+    relacion_ancho_alto = ancho / alto
+
+    # Establecer un umbral para determinar la orientación
+    umbral_orientacion = 1.0  # Puedes ajustar este valor según tus necesidades
+
+    if relacion_ancho_alto > umbral_orientacion:
+        # La imagen es más ancha que alta, no es necesario rotar
+        orientacion = "horizontal"
+    else:
+        # La imagen es más alta que ancha, necesita rotación
+        orientacion = "vertical"
+
+    return orientacion
 
 def convertir_pdf_a_imagenes(pdf_path, temp_dir):
     imagenes = []
@@ -23,13 +45,13 @@ def convertir_pdf_a_imagenes(pdf_path, temp_dir):
             page = pdf.pages[pagina_num]
             width = float(page.mediabox[2])
             height = float(page.mediabox[3])
-            orientation = "horizontal" if width > height else "vertical"
 
             pdf_document = fitz.open(pdf_path)
             pagina = pdf_document.load_page(pagina_num)
             img = pagina.get_pixmap(matrix=fitz.Matrix(RESOLUCION_DPI / 72, RESOLUCION_DPI / 72))
-            img_path = os.path.join(temp_dir, f'pagina_{pagina_num}.png')
+            img_path = os.path.join(temp_dir, f'pagina_{pagina_num}.png')      
             img.save(img_path, "png")
+            orientation = detectar_orientacion(img_path)
             imagenes.append((img_path, orientation))
     except Exception as e:
         print(f"Error al procesar el PDF: {str(e)}")
