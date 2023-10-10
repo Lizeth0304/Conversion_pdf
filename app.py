@@ -9,7 +9,12 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, landscape, A4
 from reportlab.lib.units import inch
 import cv2
+from flask_cors import CORS
+
 app = Flask(__name__)
+CORS(app)  
+CORS(app, resources={r"/procesar-pdf": {"origins": "*"}})
+
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # Resolución deseada para las imágenes en DPI (puedes ajustarla según tus necesidades)
@@ -79,17 +84,18 @@ def crear_pdf_desde_imagenes(imagenes, pdf_salida):
     with open(pdf_salida, "wb") as pdf:
         pdf.write(packet.read())
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        if 'pdf_file' not in request.files:
-            return render_template('index.html', error='No se seleccionó ningún archivo PDF.')
+@app.route('/procesar-pdf', methods=['POST'])
+def procesar_pdf():
+    if 'pdf_file' not in request.files:
+        return "No se seleccionó ningún archivo PDF.", 400
 
-        pdf_file = request.files['pdf_file']
+    pdf_file = request.files['pdf_file']
 
-        if pdf_file.filename == '':
-            return render_template('index.html', error='Nombre de archivo no válido.')
+    if pdf_file.filename == '':
+        return "Nombre de archivo no válido.", 400
 
+    try:
+        # Guarda el archivo PDF en una ubicación temporal
         pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], pdf_file.filename)
         pdf_file.save(pdf_path)
 
@@ -98,15 +104,22 @@ def index():
             imagenes = convertir_pdf_a_imagenes(pdf_path, temp_dir)
             nombre_original = os.path.splitext(pdf_file.filename)[0]  # Obtener el nombre original sin extensión
             nuevo_pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], f'{nombre_original}-Formateado.pdf')
-            
+
             crear_pdf_desde_imagenes(imagenes, nuevo_pdf_path)
 
+            # Devuelve el nuevo PDF como respuesta
             return send_file(nuevo_pdf_path, as_attachment=True)
+
         finally:
             for imagen_path, _ in imagenes:
                 os.remove(imagen_path)
             os.rmdir(temp_dir)
 
+    except Exception as e:
+        return f"Error al procesar el PDF: {str(e)}", 500
+
+@app.route('/', methods=['GET'])
+def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
