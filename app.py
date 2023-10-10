@@ -96,7 +96,8 @@ def index():
         temp_dir = tempfile.mkdtemp()
         try:
             imagenes = convertir_pdf_a_imagenes(pdf_path, temp_dir)
-            nuevo_pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], 'nuevo_pdf.pdf')
+            nombre_original = os.path.splitext(pdf_file.filename)[0]  # Obtener el nombre original sin extensión
+            nuevo_pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], f'{nombre_original}-Formateado.pdf')
             
             crear_pdf_desde_imagenes(imagenes, nuevo_pdf_path)
 
